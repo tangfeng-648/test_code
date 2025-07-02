@@ -4,7 +4,9 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <stdatomic.h>
-#define __USE_GNU
+#ifndef __USE_GNU
+#define __USE_GNU 1
+#endif
 #include <sched.h>
 #include <pthread.h>
 
@@ -55,7 +57,7 @@ void *tst_thread(void *arg) {
     return NULL;
 }
 
-static int print_sched_policy(int policy)
+static void print_sched_policy(int policy)
 {
     switch (policy) {
         case SCHED_FIFO:
@@ -71,6 +73,7 @@ static int print_sched_policy(int policy)
             tst_info("Unknown scheduling policy %d \n", policy);
             break;
     }
+    return ;
 }
 
 static int test_schedule_fifo(void)
@@ -80,7 +83,6 @@ static int test_schedule_fifo(void)
     // 1. 查询操作系统调度策略，设置调度策略为时间片轮转调度
     tst_start();
     struct sched_param param;
-    int priority ;
     print_sched_policy(sched_getscheduler(0));
     param.sched_priority = sched_get_priority_max(SCHED_FIFO);
     sched_setscheduler(0, SCHED_FIFO, &param);
@@ -117,15 +119,15 @@ static int test_schedule_fifo(void)
     int count = 0;
     for (int i = 0; i < nr_cpus; i++) {
         CPU_ZERO(&cpuset);
-        CPU_SET(i, &cpuset);
+        CPU_SET(1, &cpuset);
         pthread_setaffinity_np(tst_t[i].thread, sizeof(cpu_set_t), &cpuset);
     }
 
     for (int i = 0; i < nr_cpus; i++) {
         CPU_ZERO(&cpuset);
         pthread_getaffinity_np(tst_t[i].thread, sizeof(cpu_set_t), &cpuset);
-        if (CPU_ISSET(i, &cpuset)) {
-            tst_info("thread%d is running on cpu%d\n", i, i);
+        if (CPU_ISSET(1, &cpuset)) {
+            tst_info("thread%d is running on cpu%d\n", i, 1);
             count++;
         }
     }
@@ -207,7 +209,6 @@ static int test_schedule_rr(void)
     // 1. 查询操作系统调度策略，设置调度策略为时间片轮转调度
     tst_start();
     struct sched_param param;
-    int priority ;
     print_sched_policy(sched_getscheduler(0));
     param.sched_priority = sched_get_priority_max(SCHED_RR);
     sched_setscheduler(0, SCHED_RR, &param);

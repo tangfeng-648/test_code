@@ -45,7 +45,7 @@ static int test_process_management(void)
             printf("[%d] ", pid[i]);
     }
     printf("\n");
-    sleep(2);
+    sleep(3);
     tst_res(PASS, "Killed %d processes\n", KILL_NUM);
 
     // 3：挂起3个进程，确保挂起的进程存在并无输出信息
@@ -61,6 +61,7 @@ static int test_process_management(void)
             }
         }
     }
+    sleep(3);
     tst_res(PASS, "Suspended %d processes\n", KILL_NUM);
     
     return EXIT_SUCCESS;

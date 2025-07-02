@@ -16,7 +16,7 @@ static pid_t p_pid;
 #define ALLOC_SIZE (1024 * 1024 * 100)
 
 typedef struct {
-    char name[NAME_MAX+1];
+    char name[256];
     pid_t pid;
     struct list_head list;
 } process_list_t;
@@ -40,7 +40,7 @@ int read_proc(struct list_head* plist)
     struct dirent * dir;
     FILE *sched_file;
 
-    sched_path = malloc(sizeof(char)*NAME_MAX);
+    sched_path = malloc(sizeof(char)*256);
 
     directory=opendir("/proc");
     if(directory==NULL)
@@ -112,6 +112,7 @@ void oom()
 {
     struct sched_param param;
     size_t alloc_count = 0;
+    FILE *oom_fd;
     void **allocs = (void **)malloc(sizeof(void *) * 1024);
 
     param.sched_priority = sched_get_priority_max(SCHED_FIFO);
@@ -125,6 +126,16 @@ void oom()
         exit(42);
     }
 
+    oom_fd = fopen("/proc/self/oom_score_adj", "w");
+    if (oom_fd) {
+        const char* score = "1000";
+        if (fwrite(score, sizeof(score), 1, oom_fd) != 1) {
+            tst_info("Failed to set pid[%d] oom_score_adj\n", getpid());
+            exit(42);
+        }
+        fclose(oom_fd);
+    }
+
     while (1) {
         void *mem = malloc(ALLOC_SIZE);
         if (!mem) {
@@ -135,6 +146,7 @@ void oom()
         alloc_count++;
 
         memset(mem, 0x55, ALLOC_SIZE);
+        tst_info("Allocated %d MB\n", ALLOC_SIZE / 1024 / 1024);
 
         usleep(10000);
     }
@@ -172,7 +184,7 @@ static void print_time()
     time_t t;
     struct tm* local;
     struct sched_param param;
-    FILE *oom_fd;
+    FILE *fd;
     sigset_t sigset;
 
     param.sched_priority = sched_get_priority_max(SCHED_FIFO);
@@ -186,14 +198,14 @@ static void print_time()
         exit(42);
     }
 
-    oom_fd = fopen("/proc/self/oom_score_adj", "w");
-    if (oom_fd) {
+    fd = fopen("/proc/self/oom_score_adj", "w");
+    if (fd) {
         const char* score = "-1000";
-        if (fwrite(score, sizeof(score), 1, oom_fd) != 1) {
+        if (fwrite(score, sizeof(score), 1, fd) != 1) {
             tst_info("Failed to set pid[%d] oom_score_adj\n", getpid());
             exit(42);
         }
-        fclose(oom_fd);
+        fclose(fd);
     }
 
     while(1) {
@@ -209,7 +221,6 @@ static void print_time()
 static void log_process()
 {
     int pid = fork();
-    int status = 0;
 
     if (pid < 0) {
         tst_res(FAIL, "fork error\n");
@@ -228,7 +239,6 @@ static void log_process()
 static void kill_process()
 {
     int pid = fork();
-    int ret = 0;
 
     if (pid < 0) {
         tst_res(FAIL, "fork error\n");
@@ -245,7 +255,7 @@ static void kill_process()
 }
 
 static int check_process_exist(pid_t pid) {
-    char exe[NAME_MAX];
+    char exe[256];
     snprintf(exe, sizeof(exe), "/proc/%d/exe", pid);
     if (access(exe, R_OK) == 0) {
         return 1;

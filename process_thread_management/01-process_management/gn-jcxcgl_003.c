@@ -15,6 +15,8 @@ typedef struct {
 static sem_t g_semaphore;
 static volatile int g_quit = 0;
 
+#define TIME_1S
+
 static inline pid_t oh_gettid() {
     return syscall(__NR_gettid);
 }

@@ -22,8 +22,7 @@ typedef struct {
     pthread_cond_t cond_suspend;
 } tst_thread_t;
 
-
-static inline pid_t gettid() {
+static inline pid_t oh_gettid() {
     return syscall(__NR_gettid);
 }
 
@@ -31,7 +30,8 @@ void* tst_thread(void* arg)
 {
     tst_thread_t* tst = (tst_thread_t*)arg;
 
-    tst->tid = gettid();
+    tst->running = 1;
+    tst->tid = oh_gettid();
     while(tst->running) {
         pthread_mutex_lock(&tst->mutex_suspend);
         while(tst->suspend) {
@@ -54,12 +54,12 @@ void* tst_thread(void* arg)
                 tst_info("TID%d[%d] get policy=%d sched_priority=%d \n", tst->id, tst->tid, policy, param.sched_priority);
             }
 
-            tst->set_param= 0;
+            tst->set_param = 0;
         }
 
         tst_info("TID%d[%d] is running\n", tst->id, tst->tid); 
         time_t start_time = time(NULL);
-        while (time(NULL) - start_time < 2) {}
+        while (time(NULL) - start_time < 1) {}
     }
     tst_info("TID%d[%d] exiting\n", tst->id, tst->tid);
     pthread_exit(NULL);
@@ -96,8 +96,10 @@ static int test_thread_management(void)
     tst_start();
     for (int i=0; i < NUM; i++){
         tst_t[i].id = i;
-        tst_t[i].running = 1;
+        tst_t[i].tid = 0;
         tst_t[i].suspend = 0;
+        tst_t[i].running = 0;
+        tst_t[i].set_param = 0;
 
         pthread_mutex_init(&tst_t[i].mutex_suspend, NULL);
         pthread_cond_init(&tst_t[i].cond_suspend, NULL);
@@ -107,16 +109,20 @@ static int test_thread_management(void)
             exit(42);
         }
     }
+
     for(int i=0; i < NUM; i++) {
-        if(tst_t[i].running == 1) 
+	if(tst_t[i].tid != 0) {
             count++;
+	}else {
+            i--;
+	}
     }
 
-    if(count == 10){
+    if (count == 10){
         tst_res(PASS, "Created %d threads\n", NUM);
         count = 0;
     }else {
-        tst_res(FAIL, "Failed to create threads\n");
+        tst_res(FAIL, "Failed to create threads count=%d\n", count);
         assert(count == 10);
     }
 

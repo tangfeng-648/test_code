@@ -12,10 +12,12 @@
 #define ALLOC_SIZE (1024 * 1024 * 100)
 
 typedef struct {
-    char name[NAME_MAX+1];
+    char name[256];
     pid_t pid;
     struct list_head list;
 } process_list_t;
+
+static pid_t g_loader_pid = -1;
 
 int is_uint(char input[])
 {
@@ -23,7 +25,9 @@ int is_uint(char input[])
     {
         if(!isdigit(input[i]))
         {
-            return 0;
+            if(input[i] <= g_loader_pid) {
+                return 0;
+	    }
         }
     }
     return 1;
@@ -36,7 +40,7 @@ int read_proc(struct list_head* plist)
     struct dirent * dir;
     FILE *comm_file;
 
-    comm_path = malloc(sizeof(char)*NAME_MAX);
+    comm_path = malloc(sizeof(char)*256);
 
     directory=opendir("/proc");
     if(directory==NULL)
@@ -155,6 +159,7 @@ void oom_process(struct list_head* plist1)
     }
 
     if(pid > 0) {
+        g_loader_pid = pid;
         read_proc(plist1);
         if (waitpid(pid, &status, 0) > 0) {
             if (WIFSIGNALED(status))
@@ -172,8 +177,8 @@ int test_oom_killer() {
     list_inithead(plist1_head);
     read_proc(plist1_head);
     print_process_list(plist1_head);
+    tst_res(PASS, "Current process list length=%d\n", list_length(plist1_head));
     free_plist(plist1_head);
-    tst_res(PASS, "Current process list lenth=%d\n", list_length(plist1_head));
 
     // 2. 启动一个loader进程，逐渐申请内存，直到内存不足
     tst_start();
@@ -186,21 +191,30 @@ int test_oom_killer() {
     int pass = false;
     struct list_head* plist2_head = malloc(sizeof(struct list_head));
 
+    tst_info("plist1 length=%d \n", plist1_len);
     list_inithead(plist2_head);
-    while(!pass) {
+    int count = 0;
+    while(!pass || count > 30) {
         read_proc(plist2_head);
         plist2_len = list_length(plist2_head);
+        tst_info("plist2 length=%d \n", plist2_len);
+        count++;
         if(plist1_len > plist2_len) {
             pass = true;
         }
         free_plist(plist2_head);
         sleep(1);
     }
-    tst_res(PASS, "Plist1 > Plist2\n");
 
     free_plist(plist1_head);
     free(plist1_head);
     free(plist2_head);
+
+    if(count < 30)
+        tst_res(PASS, "Plist1 > Plist2\n");
+    else
+        tst_res(FAIL, "Plist1 <= Plist2\n");
+
     return 0;
 }
 

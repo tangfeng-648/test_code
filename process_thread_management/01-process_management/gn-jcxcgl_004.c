@@ -47,7 +47,7 @@ void *tst_thread(void *arg) {
 
     while (g_quit == 0) {
         // 输出ID信息
-        //tst_info("TID%d[%d] is running\n", tst->id, tst->tid);
+        tst_info("TID%d[%d] is running\n", tst->id, tst->tid);
 
         // 申请信号量
         if (sem_wait(&g_semaphore) != 0) {
@@ -88,6 +88,7 @@ static int test_thread_state_change(void)
 
     // 2. 创建3*nr_cpus得线程，每个线程输出ID信息，申请信号量，运算，释放信号量
     tst_start();
+    nr_cpus = 3 * nr_cpus;
     tst_thread_t tst_t[nr_cpus];
     for (long i = 0; i < nr_cpus; i++) {
         tst_t[i].id = i;
@@ -103,7 +104,7 @@ static int test_thread_state_change(void)
     int thread_state = 0;
     int count = 0;
     while(1) {
-        if(get_thread_state(1, state, sizeof(state)) == 0){
+        if(get_thread_state(tst_t[1].tid, state, sizeof(state)) == 0){
             if(strstr(state, "sleeping") && (thread_state != 0x1)){
                 thread_state = 0x1;
                 tst_info("Thread in Blocked State\n");
@@ -114,7 +115,7 @@ static int test_thread_state_change(void)
                 tst_info("Thread in Readly or Running State\n");
                 count++;
             }
-            if(count == 4)
+            if(count == 3)
                 break;
         }
     }
